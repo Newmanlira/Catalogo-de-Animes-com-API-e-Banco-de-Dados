@@ -1,0 +1,7 @@
+# Ignorar arquivos de dados e banco de dados
+animes_data.json
+animes_catalog.db
+
+# Ignorar pastas do Python
+__pycache__/
+venv/
