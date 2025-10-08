@@ -3,6 +3,7 @@ Checklist do Projeto: Catálogo de Animes
 Fase 1: Preparação e Acesso à API
 
  Pesquisar e Escolher a API: Analisar AniList, Kitsu e MyAnimeList para decidir qual usar.
+07/10/2025 - Decidi usar API da ANILIST.
  Criar uma Conta de Desenvolvedor: Registrar-se na plataforma da API escolhida.
  Gerar a Chave de API (Credenciais): Obter o Client ID e/ou Client Secret para autenticação.
 
