@@ -1,0 +1,25 @@
+Checklist do Projeto: Catálogo de Animes
+
+Fase 1: Preparação e Acesso à API
+
+ Pesquisar e Escolher a API: Analisar AniList, Kitsu e MyAnimeList para decidir qual usar.
+ Criar uma Conta de Desenvolvedor: Registrar-se na plataforma da API escolhida.
+ Gerar a Chave de API (Credenciais): Obter o Client ID e/ou Client Secret para autenticação.
+
+Fase 2: Desenvolvimento do Script de Extração
+
+ Configurar o Ambiente de Desenvolvimento: Instalar Python e as bibliotecas necessárias (ex: requests).
+ Escrever o Código para Autenticação: Conectar-se à API usando as credenciais.
+ Desenvolver a Lógica de Extração de Dados: Criar o script para buscar a lista de animes (lidando com paginação).
+ Tratar e Limpar os Dados: Selecionar e formatar os campos de interesse (título, ano, nota, etc.).
+
+Fase 3: Armazenamento dos Dados
+
+ Escolher e Configurar o Banco de Dados: Definir o banco de dados (sugestão: SQLite).
+ Modelar a Tabela do Banco de Dados: Desenhar a estrutura da tabela animes (colunas e tipos).
+ Escrever o Código para Inserir os Dados: Criar a lógica para salvar os dados extraídos no banco.
+
+Fase 4: Execução e Validação
+
+ Executar o Script Completo: Rodar o processo do início ao fim.
+ Verificar os Dados no Banco: Consultar o banco para garantir que tudo foi salvo corretamente.
