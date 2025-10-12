@@ -1,16 +1,35 @@
+# -*- coding: utf-8 -*-
+"""
+Módulo de Extração de Dados da API AniList.
+
+Este script conecta-se à API GraphQL da AniList para extrair uma lista
+completa de animes, tratando a paginação e os limites de requisição.
+Os dados extraídos são salvos em um arquivo JSON para processamento posterior.
+
+Autor: Newman Lira
+Data: 12 de Outubro de 2025
+"""
+
 import requests
 import json
-import time # Essencial para não sobrecarregar a API
+import time
+import os
 
-# --- Configurações ---
-url = 'https://graphql.anilist.co'
-# Vamos aumentar a quantidade de animes por página para o máximo permitido, que é 50.
-# Isso torna nossa coleta de dados muito mais eficiente.
+# --- Constantes e Configuração ---
+
+# URL do endpoint da API GraphQL da AniList.
+API_URL = 'https://graphql.anilist.co'
+
+# Número de itens por página. O máximo permitido pela API é 50.
 ITEMS_PER_PAGE = 50
 
-# --- Query GraphQL (a mesma de antes ) ---
-query = '''
-query ($page: Int, $perPage: Int) {
+# Nome do arquivo de saída para os dados extraídos.
+OUTPUT_FILENAME = 'animes_data.json'
+
+# Query GraphQL para buscar dados de animes.
+# Seleciona campos essenciais e ordena por popularidade decrescente.
+GRAPHQL_QUERY = '''
+query ($page: Int, $perPage: Int ) {
   Page (page: $page, perPage: $perPage) {
     pageInfo {
       total
@@ -34,77 +53,100 @@ query ($page: Int, $perPage: Int) {
 }
 '''
 
-# --- Lógica de Paginação Automática ---
+# --- Funções ---
 
-# 1. Inicializamos as variáveis de controle do loop
-page_num = 1
-has_next_page = True
-all_animes = [] # Lista para guardar TODOS os animes que coletarmos
+def fetch_animes_from_api():
+    """
+    Executa o processo de extração de dados da API AniList.
 
-while has_next_page:
-    variables = {
-        'page': page_num,
-        'perPage': ITEMS_PER_PAGE
-    }
+    Itera através das páginas da API, coleta os dados dos animes e os
+    armazena em uma lista. Inclui um delay para respeitar o rate limit da API.
 
-    payload = {
-        'query': query,
-        'variables': variables
-    }
+    Returns:
+        list: Uma lista de dicionários, onde cada dicionário representa um anime.
+              Retorna uma lista vazia em caso de falha na primeira requisição.
+    """
+    page_num = 1
+    has_next_page = True
+    all_animes = []
+
+    while has_next_page:
+        variables = {'page': page_num, 'perPage': ITEMS_PER_PAGE}
+        payload = {'query': GRAPHQL_QUERY, 'variables': variables}
+        headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        }
+
+        print(f"Buscando página {page_num}...")
+
+        try:
+            response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
+            response.raise_for_status()  # Lança um erro para status codes HTTP >= 400
+
+            data = response.json()
+            page_data = data.get('data', {}).get('Page', {})
+            
+            animes_on_page = page_data.get('media', [])
+            if animes_on_page:
+                all_animes.extend(animes_on_page)
+                print(f"  -> {len(animes_on_page)} animes encontrados. Total acumulado: {len(all_animes)}")
+            
+            page_info = page_data.get('pageInfo', {})
+            has_next_page = page_info.get('hasNextPage', False)
+            
+            page_num += 1
+
+            # Pausa estratégica para respeitar o rate limit da API (90 reqs/min).
+            time.sleep(0.7)
+
+        except requests.exceptions.RequestException as e:
+            print(f"Erro de rede ou HTTP na página {page_num}: {e}")
+            break
+        except json.JSONDecodeError:
+            print(f"Erro ao decodificar a resposta JSON na página {page_num}.")
+            break
+
+    return all_animes
+
+def save_data_to_json(data, filename):
+    """
+    Salva os dados coletados em um arquivo JSON.
+
+    Args:
+        data (list): A lista de dados a ser salva.
+        filename (str): O nome do arquivo de saída.
+    """
+    try:
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+        print(f"\nTodos os dados foram salvos com sucesso em '{filename}'")
+    except IOError as e:
+        print(f"Erro ao salvar o arquivo '{filename}': {e}")
+
+# --- Execução Principal ---
+
+def main():
+    """Função principal que orquestra a extração e salvamento dos dados."""
+    print("--- Iniciando Pipeline de Extração de Dados de Animes ---")
     
-    headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-    }
+    animes_data = fetch_animes_from_api()
 
-    print(f"Buscando página {page_num}...")
-
-    # 2. Fazemos a requisição
-    response = requests.post(url, headers=headers, json=payload)
-
-    # 3. Verificamos se a requisição foi bem-sucedida
-    if response.status_code == 200:
-        data = response.json()
-        page_data = data.get('data', {}).get('Page', {})
+    if animes_data:
+        print("\n----------------------------------------------------")
+        print("Coleta de dados finalizada!")
+        print(f"Total de animes coletados: {len(animes_data)}")
         
-        # 4. Adicionamos os animes da página atual à nossa lista principal
-        animes_on_page = page_data.get('media', [])
-        if animes_on_page:
-            all_animes.extend(animes_on_page)
-            print(f"  -> {len(animes_on_page)} animes encontrados. Total acumulado: {len(all_animes)}")
+        save_data_to_json(animes_data, OUTPUT_FILENAME)
         
-        # 5. Atualizamos a condição de parada do loop
-        page_info = page_data.get('pageInfo', {})
-        has_next_page = page_info.get('hasNextPage', False)
-        
-        # 6. Incrementamos o número da página para a próxima iteração
-        page_num += 1
-
-        # 7. PAUSA ESTRATÉGICA: Respeitar o limite da API (90 requisições/minuto)
-        # Fazemos uma pequena pausa de 0.7 segundos para garantir que não excederemos o limite.
-        time.sleep(0.7) 
-
+        print("\nAmostra dos 5 primeiros animes coletados:")
+        for anime in animes_data[:5]:
+            titulo = anime.get('title', {}).get('english') or anime.get('title', {}).get('romaji', 'N/A')
+            print(f"- {titulo}")
     else:
-        # Se uma requisição falhar, paramos o loop para não continuar com erros.
-        print(f"Erro na página {page_num}. Status Code: {response.status_code}")
-        print(response.text)
-        break # Interrompe o loop em caso de erro
+        print("\nNenhum dado foi coletado. O processo foi interrompido.")
 
-# --- Exibição do Resultado Final ---
-print("\n----------------------------------------------------")
-print(f"Coleta de dados finalizada!")
-print(f"Total de animes coletados: {len(all_animes)}")
-print("Amostra dos 5 primeiros animes coletados:")
+    print("----------------------------------------------------")
 
-# Imprime os 5 primeiros animes da lista para verificação
-for anime in all_animes[:5]:
-    titulo = anime['title']['english'] if anime['title']['english'] else anime['title']['romaji']
-    print(f"- {titulo}")
-
-# Opcional: Salvar os resultados em um arquivo JSON para não perdermos o progresso
-with open('animes_data.json', 'w', encoding='utf-8') as f:
-    json.dump(all_animes, f, ensure_ascii=False, indent=4)
-
-print("\nTodos os dados foram salvos em 'animes_data.json'")
-print("----------------------------------------------------")
-
+if __name__ == "__main__":
+    main()
